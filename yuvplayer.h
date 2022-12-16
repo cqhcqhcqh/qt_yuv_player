@@ -14,6 +14,7 @@ typedef struct {
     int width;
     int height;
     AVPixelFormat fmt;
+    int fps;
 } YuvFile;
 
 typedef struct {
@@ -43,6 +44,9 @@ private:
     QImage *_currentImage = nullptr;
     void scale(RescaleVideoSpec &in, RescaleVideoSpec &out);
     void revertCurrentImage();
+    int _interval;
+    QRect _dstRect;
+    int _imgSize;
 };
 
 #endif // YUVPLAYER_H

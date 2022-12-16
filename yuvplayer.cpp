@@ -22,11 +22,11 @@ void YuvPlayer::paintEvent(QPaintEvent *event) {
     if (!_currentImage) return;
     qDebug() << "paintEvent";
     // 将图片绘制到当前组件上
-    QPainter(this).drawImage(QRect(0, 0, width(), height()), *_currentImage);
+    QPainter(this).drawImage(_dstRect, *_currentImage);
 }
 
 void YuvPlayer::play() {
-    _startPlayTimerId = startTimer(1000 / 30);
+    _startPlayTimerId = startTimer(_interval);
     // 打开文件
     _file = new QFile(_in.path);
     int ret = _file->open(QFile::ReadOnly);
@@ -34,6 +34,41 @@ void YuvPlayer::play() {
         qDebug() << "QFile open error" << _in.path;
         return;
     }
+    // 刷帧的时间间隔
+    _interval = 1000 / _in.fps;
+
+    // 一帧图片的大小
+    _imgSize = av_image_get_buffer_size(_in.fmt,
+                                        _in.width,
+                                        _in.height, 1);
+
+    // 组件的尺寸
+    int w = width();
+    int h = height();
+
+    // 计算rect
+    int dx = 0;
+    int dy = 0;
+    int dw = _in.width;
+    int dh = _in.height;
+
+    // 计算目标尺寸
+    if (dw > w || dh > h) { // 缩放
+        if (dw * h > w * dh) { // 视频的宽高比 > 播放器的宽高比
+            dh = w * dh / dw;
+            dw = w;
+        } else {
+            dw = h * dw / dh;
+            dh = h;
+        }
+    }
+
+    // 居中
+    dx = (w - dw) >> 1;
+    dy = (h - dh) >> 1;
+
+    _dstRect = QRect(dx, dy, dw, dh);
+    qDebug() << "视频的矩形框" << dx << dy << dw << dh;
 }
 
 void YuvPlayer::timerEvent(QTimerEvent *event) {
@@ -41,20 +76,18 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
     in.fmt = _in.fmt;
     in.width = _in.width;
     in.height = _in.height;
-    int in_image_buffer_size = av_image_get_buffer_size(in.fmt, in.width, in.height, 1);
-    qDebug() << "in_image_buffer_size" << in_image_buffer_size;
 
     RescaleVideoSpec out;
     out.fmt = AV_PIX_FMT_RGB24;
     out.width = 640;
     out.height = 480;
 
-    uint8_t image_buffer[in_image_buffer_size];
+    uint8_t image_buffer[_imgSize];
     in.imageBuffer = image_buffer;
 
     revertCurrentImage();
 
-    if (_file->read((char *)image_buffer, in_image_buffer_size) > 0) {
+    if (_file->read((char *)image_buffer, _imgSize) > 0) {
         scale(in, out);
         _currentImage = new QImage(out.imageBuffer,
                                    out.width,
@@ -113,9 +146,9 @@ void YuvPlayer::scale(RescaleVideoSpec &in, RescaleVideoSpec &out) {
     out.imageBuffer = (uint8_t *)malloc(out_image_buffer_size);
     memcpy(out.imageBuffer, dstData[0], out_image_buffer_size);
 
-    sws_freeContext(ctx);
     av_freep(&srcData[0]);
     av_freep(&dstData[0]);
+    sws_freeContext(ctx);
 }
 
 void YuvPlayer::pause() {

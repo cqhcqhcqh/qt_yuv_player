@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent)
         1280,
         720,
         AV_PIX_FMT_YUV420P,
+        30,
     };
     _player->replace(in);
     _player->setGeometry(QRect(100, 0, 640, 640));

@@ -59,7 +59,6 @@ void YuvPlayer::timerEvent(QTimerEvent *event) {
         _currentImage = new QImage(out.imageBuffer,
                                    out.width,
                                    out.height,
-                                   out.fmt,
                                    QImage::Format_RGB888);
         update();
     } else {
